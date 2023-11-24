@@ -1,0 +1,2 @@
+2023-11-24 20:38:56,350 - INFO - 2023-11-24 20:38:56 - INFO - /Users/mpo/Projects/D3/Vizz/Defense Stock Investments/Data/SEC API/CIK Parser/env/advanced_error_handler.py - log_error() - Line 40 - str: Handling other non-critical errors
+2023-11-24 20:38:56,351 - INFO - 2023-11-24 20:38:56 - INFO - /Users/mpo/Projects/D3/Vizz/Defense Stock Investments/Data/SEC API/CIK Parser/env/advanced_error_handler.py - log_error() - Line 40 - str: Recovering from error: Test error

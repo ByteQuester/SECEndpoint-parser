@@ -1,4 +1,5 @@
 import requests
+
 from lama.typing import SECEndpoints
 
 
