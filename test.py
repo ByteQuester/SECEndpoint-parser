@@ -1,4 +1,4 @@
-from env.roster import Roster  # Assuming Roster class is in roster.py
+from env.roster import Roster
 
 roster = Roster()
 
