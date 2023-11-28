@@ -21,3 +21,12 @@ Changelog:
         Started preparing README and documentation for GitHub.
         Created a concise project summary.
     Changelog Initiation: Began tracking project changes and progress.
+
+2023-11-28
+
+    Decomposed AdvancedErrorHandler into LoggingManager and NotificationManager.
+    Developed LoggingManager for logging and NotificationManager for CLI notifications.
+    Removed AdvancedErrorHandler for a more modular approach.
+    Refactored code to integrate new classes.
+    Conducted unit and integration testing for new classes.
+    Updated documentation and README.
