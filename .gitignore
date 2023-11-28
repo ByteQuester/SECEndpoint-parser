@@ -51,5 +51,6 @@ Temporary Items
 *.pyc
 __pycache__/
 
+
 # End of https://www.toptal.com/developers/gitignore/api/pycharm,macos,virtualenv
 

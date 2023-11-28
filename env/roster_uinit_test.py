@@ -1,16 +1,43 @@
-from env.roster import Roster
+'''
+This file contains the unit tests for the Roster class.
+'''
+import unittest
+from unittest.mock import patch
+from roster import Roster
 
-roster = Roster()
 
-# Test with a known CIK
-test_cik = "0000012927"  # CIK for Berkshire Hathaway Inc., as an example
+class RosterTest(unittest.TestCase):
+    def setUp(self):
+        self.roster = Roster()
 
-# Recruit the CIK and check API status
-roster.recruit_cik(test_cik)
-roster.print_cik()
+    def test_recruit_cik(self):
+        cik = "1234567890"
+        expected_endpoints = {
+            "company_tickers": "https://www.sec.gov/files/company_tickers.json",
+            "submissions": "https://data.sec.gov/submissions/CIK1234567890.json",
+            "company_facts": "https://data.sec.gov/api/xbrl/companyfacts/CIK1234567890.json"
+        }
+        self.roster.recruit_cik(cik)
+        self.assertEqual(self.roster.cik, cik)
+        self.assertEqual(self.roster.api_endpoints, expected_endpoints)
 
-# Get and print the API status
-api_status = roster.get_api_status()
-print("API Status for CIK:", test_cik)
-for endpoint, status in api_status.items():
-    print(f"  {endpoint}: {status}")
+    @patch('roster.requests.get')
+    def test_check_api_status(self, mock_get):
+        mock_response = mock_get.return_value
+        mock_response.status_code = 200
+        expected_status = {
+            "company_tickers": "OK",
+            "submissions": "OK",
+            "company_facts": "OK"
+        }
+        self.roster.api_endpoints = {
+            "company_tickers": "https://www.sec.gov/files/company_tickers.json",
+            "submissions": "https://data.sec.gov/submissions/CIK1234567890.json",
+            "company_facts": "https://data.sec.gov/api/xbrl/companyfacts/CIK1234567890.json"
+        }
+        status = self.roster._check_api_status()
+        self.assertEqual(status, expected_status)
+
+
+if __name__ == '__main__':
+    unittest.main()

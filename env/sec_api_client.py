@@ -5,7 +5,7 @@ import requests
 import time
 
 from lama.typing import SECEndpoints
-from advanced_error_handler import AdvancedErrorHandler
+from logging_manager import LoggingManager
 
 
 class SECAPIClient:
@@ -16,7 +16,7 @@ class SECAPIClient:
             base_url (str): The base URL of the SEC API.
         """
         self.base_url = base_url
-        self.error_handler = AdvancedErrorHandler()
+        self.error_handler = LoggingManager()
         self.rate_limit = None
         self.cache = {}
 
