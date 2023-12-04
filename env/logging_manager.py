@@ -13,9 +13,8 @@ Example usage:
     # Log a message with severity level ERROR
     logger.log('An error occurred', 'ERROR')
 '''
-
-import logging
 import datetime
+import logging
 import traceback
 
 

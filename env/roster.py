@@ -1,6 +1,6 @@
 import requests
 
-from typing_ import SECEndpoints
+from lama.typing import SECEndpoints
 
 
 class Roster:

@@ -12,7 +12,7 @@ import requests
 import time
 
 from logging_manager import LoggingManager
-from typing_ import SECEndpoints
+from lama.typing import SECEndpoints
 from roster import Roster
 
 
