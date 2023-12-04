@@ -7,7 +7,7 @@ class Roster:
     def __init__(self):
         self.cik = None
         self.api_endpoints = {
-            "company_tickers": "https://www.sec.gov/files/company_tickers.json",  # Direct URL
+            "company_tickers": SECEndpoints.COMPANY_TICKERS.full_url(),
             "submissions": SECEndpoints.SUBMISSIONS.full_url(),
             "company_facts": SECEndpoints.COMPANY_FACTS.full_url(),
         }
@@ -18,6 +18,7 @@ class Roster:
         self.cik = cik
         self._update_api_endpoints(cik)
         self.api_status = self._check_api_status()
+        return self
 
     def _update_api_endpoints(self, cik):
         # Only update endpoints that require a CIK

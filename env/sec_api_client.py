@@ -1,24 +1,32 @@
 '''
 This file contains the enhanced implementation of the SECAPIClient class.
+# TODO: Implement advanced rate limiting strategy for SEC API limits.
+# TODO: Complete parsing logic implementation for submissions data and ticker endpoint.
+# TODO: Develop a caching mechanism for frequently accessed data -more advanced.
+# TODO: Optimize request headers, making User-Agent dynamic or configurable.
+# TODO: Create unit tests for all public methods.
+# TODO: Expand documentation with detailed method descriptions and examples
 '''
+from cachetools import TTLCache
 import requests
 import time
 
 from lama.typing import SECEndpoints
 from logging_manager import LoggingManager
+from roster import Roster
 
 
 class SECAPIClient:
-    def __init__(self, base_url):
+    def __init__(self, base_url=None):
         """
-        Initialize the SECAPIClient with the base URL of the SEC API.
-        Args:
-            base_url (str): The base URL of the SEC API.
+        Initialize the SECAPIClient with an optional base URL.
+        If no base URL is provided, the default URL from SECEndpoints is used.
         """
-        self.base_url = base_url
+        self.base_url = base_url if base_url else SECEndpoints.BASE_URL.value
         self.error_handler = LoggingManager()
         self.rate_limit = None
-        self.cache = {}
+        self.cache = TTLCache(maxsize=100, ttl=3600)  # Cache for 1 hour
+        self.roster = Roster()
 
     def fetch_company_tickers(self):
         """
@@ -30,10 +38,11 @@ class SECAPIClient:
         cached_data = self._get_from_cache(key)
         if cached_data:
             return cached_data
-        url = f"{self.base_url}/{SECEndpoints.COMPANY_TICKERS.value}"
+
+        url = self.roster.api_endpoints["company_tickers"]
         response = self._send_get_request(url)
         if response:
-            parsed_data = self._parse_response(response)
+            parsed_data = self._parse_response(response, 'tickers')
             if parsed_data:
                 self._store_in_cache(key, parsed_data, expiry=3600)  # Cache for 1 hour
                 return parsed_data
@@ -51,10 +60,10 @@ class SECAPIClient:
         cached_data = self._get_from_cache(key)
         if cached_data:
             return cached_data
-        url = f"{self.base_url}/{SECEndpoints.SUBMISSIONS.value.format(cik_number)}"
+        url = self.roster.recruit_cik(cik_number).api_endpoints["submissions"]
         response = self._send_get_request(url)
         if response:
-            parsed_data = self._parse_response(response)
+            parsed_data = self._parse_response(response, 'submissions')
             if parsed_data:
                 self._store_in_cache(key, parsed_data, expiry=3600)  # Cache for 1 hour
                 return parsed_data
@@ -72,10 +81,10 @@ class SECAPIClient:
         cached_data = self._get_from_cache(key)
         if cached_data:
             return cached_data
-        url = f"{self.base_url}/{SECEndpoints.COMPANY_FACTS.value.format(cik_number)}"
+        url = self.roster.recruit_cik(cik_number).api_endpoints["company_facts"]
         response = self._send_get_request(url)
         if response:
-            parsed_data = self._parse_response(response)
+            parsed_data = self._parse_response(response, 'company_facts')
             if parsed_data:
                 self._store_in_cache(key, parsed_data, expiry=3600)  # Cache for 1 hour
                 return parsed_data
@@ -89,12 +98,13 @@ class SECAPIClient:
         Returns:
             dict or None: The response from the API as a JSON object, or None if there was a parsing error.
         """
+        headers = {'User-Agent': 'YourName <your_email@example.com>'}
         try:
             if self.rate_limit and self.rate_limit['remaining'] == 0:
                 cooldown_period = self.rate_limit['reset'] - time.time()
                 if cooldown_period > 0:
                     time.sleep(cooldown_period + 1)  # Add an extra second to ensure the cooldown period has passed
-            response = requests.get(url)
+            response = requests.get(url, headers=headers)
             response.raise_for_status()
             if 'X-RateLimit-Remaining' in response.headers:
                 self.rate_limit = {
@@ -111,18 +121,33 @@ class SECAPIClient:
             self.error_handler.log_error(error_message)
             return {'error': error_message}
 
-    def _parse_response(self, response):
+    def _parse_response(self, response, response_type):
         """
-        Parse the raw JSON response into a structured and usable format.
+        Parse the raw JSON response based on the type of data.
         Args:
             response (dict): The raw JSON response from the SEC API.
+            response_type (str): The type of data (e.g., 'tickers', 'submissions', 'company_facts').
         Returns:
-            dict or None: The parsed response, or None if there was an error during parsing.
+            dict or None: The parsed response.
         """
         try:
-            # Placeholder for response parsing logic
-            parsed_data = response  # Replace this with the actual parsing logic
-            return parsed_data
+            if response_type == 'tickers':
+                # Specific parsing logic for tickers
+                pass
+            elif response_type == 'submissions':
+                # Specific parsing logic for submissions
+                pass
+            elif response_type == 'company_facts':
+                parsed_data = {}
+                for metric_key, metric_data in response['facts']['us-gaap'].items():
+                    if 'units' in metric_data and 'USD' in metric_data['units']:
+                        usd_data = metric_data['units']['USD']
+                        parsed_data[metric_key] = [{'end': item['end'], 'val': item['val']} for item in usd_data]
+                return parsed_data
+            else:
+                error_message = f"Unknown response type: {response_type}"
+                self.error_handler.log_error(error_message)
+                return {'error': error_message}
         except Exception as e:
             error_message = f"Error parsing response: {str(e)}"
             self.error_handler.log_error(error_message)
