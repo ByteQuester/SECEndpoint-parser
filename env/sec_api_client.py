@@ -11,8 +11,8 @@ from cachetools import TTLCache
 import requests
 import time
 
-from lama.typing import SECEndpoints
 from logging_manager import LoggingManager
+from typing_ import SECEndpoints
 from roster import Roster
 
 
@@ -138,12 +138,17 @@ class SECAPIClient:
                 # Specific parsing logic for submissions
                 pass
             elif response_type == 'company_facts':
+                entityname, cik = response['entityName'], response['cik']
                 parsed_data = {}
                 for metric_key, metric_data in response['facts']['us-gaap'].items():
                     if 'units' in metric_data and 'USD' in metric_data['units']:
                         usd_data = metric_data['units']['USD']
                         parsed_data[metric_key] = [{'end': item['end'], 'val': item['val']} for item in usd_data]
-                return parsed_data
+                return {
+                "EntityName": entityname,
+                "CIK": cik,
+                "ParsedData": parsed_data
+            }
             else:
                 error_message = f"Unknown response type: {response_type}"
                 self.error_handler.log_error(error_message)
