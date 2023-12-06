@@ -1,6 +1,9 @@
 import logging
 import argparse
 
+from env.data_wrangler import FinancialDataProcessor
+from env.sec_api_client import SECAPIClient
+
 # Argument Parsing
 parser = argparse.ArgumentParser(description="SEC Filing Analyzer")
 parser.add_argument('--ciks', nargs='+', type=str, help="List of CIK numbers to analyze", required=True)

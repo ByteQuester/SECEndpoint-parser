@@ -18,7 +18,7 @@ SELECT
         ELSE CONCAT('Q4-', EXTRACT(YEAR FROM End))
     END AS Quarter
 FROM 
-    your_table_name
+    TEST_TABLE
 -- Make sure to join with a table that has stock price data if it's not in the same table
 LEFT JOIN 
     stock_price_table ON your_table_name.CIK = stock_price_table.CIK AND your_table_name.End = stock_price_table.Date
