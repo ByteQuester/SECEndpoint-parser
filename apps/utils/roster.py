@@ -1,6 +1,6 @@
 import requests
 
-from lama.typing import SECEndpoints
+from apps.types import SECEndpoints, COMPANY_TICKERS, SUBMISSIONS,COMPANY_FACTS
 
 
 class Roster:

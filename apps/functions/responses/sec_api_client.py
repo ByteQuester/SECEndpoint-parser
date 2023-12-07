@@ -11,9 +11,9 @@ from cachetools import TTLCache
 import requests
 import time
 
-from logging_manager import LoggingManager
-from lama.typing import SECEndpoints
-from roster import Roster
+from apps.functions.managers import LoggingManager
+from apps.types import BASE_URL
+from apps.utils import Roster
 
 
 class SECAPIClient:
@@ -22,7 +22,7 @@ class SECAPIClient:
         Initialize the SECAPIClient with an optional base URL.
         If no base URL is provided, the default URL from SECEndpoints is used.
         """
-        self.base_url = base_url if base_url else SECEndpoints.BASE_URL.value
+        self.base_url = base_url if base_url else BASE_URL
         self.error_handler = LoggingManager()
         self.rate_limit = None
         self.cache = TTLCache(maxsize=100, ttl=3600)  # Cache for 1 hour

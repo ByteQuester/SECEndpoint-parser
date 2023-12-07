@@ -12,7 +12,7 @@ Example usage:
     notification_manager.handle_error('An error occurred')
 '''
 
-from logging_manager import LoggingManager
+from apps.functions.managers import LoggingManager
 
 
 class NotificationManager:
