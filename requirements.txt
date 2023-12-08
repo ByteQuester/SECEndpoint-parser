@@ -13,4 +13,5 @@ pytz==2023.3.post1
 requests==2.31.0
 snowflake-connector-python==3.5.0
 cachetools~=5.3.2
-openai~=0.27.8
+openai~=1.3.7
+streamlit~=1.29.0

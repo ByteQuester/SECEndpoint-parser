@@ -8,7 +8,6 @@ from .managers import LoggingManager, NotificationManager
 __all__ = ['FinancialDataProcessor',
            'LoggingManager',
            'NotificationManager',
-           #'SECDataHandler',
            'SECAPIClient',
            'SnowflakeDataManager'
            ]
