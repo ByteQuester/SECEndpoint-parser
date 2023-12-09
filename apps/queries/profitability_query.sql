@@ -5,13 +5,11 @@ SELECT
     ROUND(SUM(CASE WHEN Metric = 'NetIncomeLoss' THEN Value ELSE NULL END) / 1000000, 2) AS NetIncomeLoss,
     ROUND(SUM(CASE WHEN Metric = 'Revenues' THEN Value ELSE NULL END) / 1000000, 2) AS Revenues,
     ROUND(SUM(CASE WHEN Metric = 'OperatingIncomeLoss' THEN Value ELSE NULL END) / 1000000, 2) AS OperatingIncomeLoss,
-    -- Calculating the profit margin as a percentage
     CASE 
         WHEN SUM(CASE WHEN Metric = 'Revenues' THEN Value ELSE NULL END) != 0 THEN 
             ROUND((SUM(CASE WHEN Metric = 'NetIncomeLoss' THEN Value ELSE NULL END) / NULLIF(SUM(CASE WHEN Metric = 'Revenues' THEN Value ELSE NULL END), 0)) * 100, 2)
         ELSE NULL 
     END AS ProfitMarginPercent,
-    -- Calculating the quarter
     CASE 
         WHEN EXTRACT(MONTH FROM End) IN (1, 2, 3) THEN CONCAT('Q1-', EXTRACT(YEAR FROM End))
         WHEN EXTRACT(MONTH FROM End) IN (4, 5, 6) THEN CONCAT('Q2-', EXTRACT(YEAR FROM End))

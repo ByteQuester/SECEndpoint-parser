@@ -5,8 +5,7 @@ SELECT
     ROUND(SUM(CASE WHEN Metric = 'NetCashProvidedByUsedInOperatingActivities' THEN Value ELSE NULL END) / 1000000, 2) AS CashFlow_Operating,
     ROUND(SUM(CASE WHEN Metric = 'NetCashProvidedByUsedInInvestingActivities' THEN Value ELSE NULL END) / 1000000, 2) AS CashFlow_Investing,
     ROUND(SUM(CASE WHEN Metric = 'NetCashProvidedByUsedInFinancingActivities' THEN Value ELSE NULL END) / 1000000, 2) AS CashFlow_Financing,
-    -- Calculating the quarter
-    CASE 
+    CASE
         WHEN EXTRACT(MONTH FROM End) IN (1, 2, 3) THEN CONCAT('Q1-', EXTRACT(YEAR FROM End))
         WHEN EXTRACT(MONTH FROM End) IN (4, 5, 6) THEN CONCAT('Q2-', EXTRACT(YEAR FROM End))
         WHEN EXTRACT(MONTH FROM End) IN (7, 8, 9) THEN CONCAT('Q3-', EXTRACT(YEAR FROM End))

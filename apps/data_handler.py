@@ -3,35 +3,24 @@ This class manages data operations.
 """
 import os
 import pandas as pd
+from pandasql import sqldf
 
 from apps.configs import SnowflakeConfig
 from apps.functions import SECAPIClient, FinancialDataProcessor, SnowflakeDataManager, LoggingManager
+from apps.queries import QUERY_FILES, ASSET_LIABILITIES, CASH_FLOW, DEBT_MANAGEMENT, LIQUIDITY, MARKET_VALUATION , OPERATIONAL_EFFICIENCY
 
 
 class DataPipelineIntegration:
     def __init__(self, cik_number=None, use_snowflake=True, snowflake_config=None, local_storage_dir='data'):
-        # Store the CIK number
         self.cik_number = cik_number
-
-        # Decide whether to use Snowflake for storage
         self.use_snowflake = use_snowflake
-
-        # Local storage directory
         self.local_storage_dir = local_storage_dir
-
         self._setup_local_storage()
-        # Initialize SEC API Client for fetching data
         self.sec_client = SECAPIClient()
-
-        # Initialize Financial Data Processor for processing the data
         self.data_processor = FinancialDataProcessor(self.sec_client)
-
         if self.use_snowflake:
-            # Use provided Snowflake configuration or default
             self.snowflake_config = snowflake_config if snowflake_config else SnowflakeConfig()
             self.snowflake_manager = SnowflakeDataManager(self.snowflake_config)
-
-        # Initialize Logging Manager for logging activities
         self.error_handler = LoggingManager()
 
     def _setup_local_storage(self):
@@ -61,10 +50,8 @@ class DataPipelineIntegration:
         Store the processed data either locally or in Snowflake.
         """
         if self.use_snowflake:
-            # Storing data in Snowflake
             self.snowflake_manager.upload_data(data)
         else:
-            # Storing data locally
             self.store_data_locally(data, file_name=None)
 
     def fetch_data(self, cik_number=None):
@@ -97,42 +84,47 @@ class DataPipelineIntegration:
             self.error_handler.log_error(e, "ERROR")
             return {"error": str(e)}
 
-    def execute_query(self, query, query_filename=None):
+    def execute_query(self, query_name):
         """
-        Execute a SQL query on the data.
+        Execute a SQL query based on its name.
         Args:
-            query (str): SQL query string.
-            query_filename (str): Path to a SQL file containing the query (optional).
+            query_name (str): Name of the query to execute.
         Returns:
             DataFrame: Query results as a pandas DataFrame.
         """
-        if self.use_snowflake:
-            # Execute query in Snowflake
-            if query_filename:
-                return self.snowflake_manager.execute_query_from_file(query_filename)
-            else:
-                return self.snowflake_manager.get_data(query)
-        else:
-            # Execute query on local data
-            return self._execute_query_locally(query, query_filename)
+        query_filename = QUERY_FILES.get(query_name)
+        if query_filename is None:
+            self.error_handler.log(f"Query name '{query_name}' not found.", "ERROR")
+            return None
 
-    def _execute_query_locally(self, query, query_file_path=None):
+        if self.use_snowflake:
+            return self.snowflake_manager.execute_query_from_file(query_filename)
+        else:
+            return self._execute_query_locally(query_filename)
+
+    def _execute_query_locally(self, query_name):
         """
-        Execute a query on locally stored data.
+        Execute a query on locally stored data using a query file.
         Args:
-            query (str): SQL query string.
-            query_file_path (str): Path to a SQL file containing the query (optional).
+            query_filename (str): Path to a SQL file containing the query.
         Returns:
             DataFrame: Query results as a pandas DataFrame.
         """
-        # Read the local CSV file into a pandas DataFrame
         data_file_path = os.path.join(self.local_storage_dir, f"data_{self.cik_number}.csv")
         df = pd.read_csv(data_file_path)
 
-        # If a query file path is provided, read the query from the file
-        if query_file_path:
-            with open(query_file_path, 'r') as file:
-                query = file.read()
-
-        # Execute the query using pandas querying capabilities
-        return df.query(query)
+        if query_name == 'Assets Liabilities':
+            return ASSET_LIABILITIES(df)
+        elif query_name == 'Cash Flow':
+            return CASH_FLOW(df)
+        elif query_name == 'Debt Management':
+            return DEBT_MANAGEMENT(df)
+        elif query_name == 'Liquidity':
+            return LIQUIDITY(df)
+        elif query_name == 'Operational Efficiency':
+            return OPERATIONAL_EFFICIENCY(df)
+        elif query_name == 'Market Valuation':
+            return MARKET_VALUATION(df, stock_price_df=None)  # Replace None with stock_price_df if available
+        else:
+            self.error_handler.log(f"Query name '{query_name}' not implemented for local execution.", "ERROR")
+            return None

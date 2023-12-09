@@ -5,8 +5,7 @@ SELECT
     ROUND(SUM(CASE WHEN Metric = 'MarketCapitalization' THEN Value ELSE NULL END) / 1000000, 2) AS MarketCap,
     AVG(CASE WHEN Metric = 'EarningsPerShareBasic' THEN Value ELSE NULL END) AS EPS_Basic,
     AVG(CASE WHEN Metric = 'EarningsPerShareDiluted' THEN Value ELSE NULL END) AS EPS_Diluted,
-    -- Assuming stock price data is available in a column named 'StockPrice'
-    CASE 
+    CASE
         WHEN AVG(CASE WHEN Metric = 'EarningsPerShareDiluted' THEN Value ELSE NULL END) > 0 THEN 
             ROUND(AVG(StockPrice) / NULLIF(AVG(CASE WHEN Metric = 'EarningsPerShareDiluted' THEN Value ELSE NULL END), 0), 2)
         ELSE NULL 
