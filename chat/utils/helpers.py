@@ -5,6 +5,9 @@ import streamlit as st
 
 
 class ChatHelper:
+    def __init__(self, openai_config):
+        self.openai_config = openai_config
+
     def generate_response(self, query_engine, prompt):
         '''
         Generate response from the query engine.

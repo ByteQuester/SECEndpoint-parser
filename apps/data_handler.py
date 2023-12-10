@@ -3,11 +3,10 @@ This class manages data operations.
 """
 import os
 import pandas as pd
-from pandasql import sqldf
 
 from apps.configs import SnowflakeConfig
 from apps.functions import SECAPIClient, FinancialDataProcessor, SnowflakeDataManager, LoggingManager
-from apps.queries import QUERY_FILES, ASSET_LIABILITIES, CASH_FLOW, DEBT_MANAGEMENT, LIQUIDITY, MARKET_VALUATION , OPERATIONAL_EFFICIENCY
+from apps.queries import ASSET_LIABILITIES, CASH_FLOW, DEBT_MANAGEMENT, LIQUIDITY, MARKET_VALUATION , OPERATIONAL_EFFICIENCY, PROFITABILITY, QUERY_FILES
 
 
 class DataPipelineIntegration:
@@ -100,7 +99,7 @@ class DataPipelineIntegration:
         if self.use_snowflake:
             return self.snowflake_manager.execute_query_from_file(query_filename)
         else:
-            return self._execute_query_locally(query_filename)
+            return self._execute_query_locally(query_name)
 
     def _execute_query_locally(self, query_name):
         """
@@ -124,7 +123,9 @@ class DataPipelineIntegration:
         elif query_name == 'Operational Efficiency':
             return OPERATIONAL_EFFICIENCY(df)
         elif query_name == 'Market Valuation':
-            return MARKET_VALUATION(df, stock_price_df=None)  # Replace None with stock_price_df if available
+            return MARKET_VALUATION(df, stock_price_df=None) #TODO: implement stock price
+        elif query_name == 'Profitability':
+            return PROFITABILITY(df)
         else:
             self.error_handler.log(f"Query name '{query_name}' not implemented for local execution.", "ERROR")
             return None

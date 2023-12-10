@@ -1,27 +1,35 @@
 '''
-Maintain the current structure with utility functions for configuration.
+Load configuration classes based on service name.
 '''
+from config_classes import BaseConfig, StreamlitConfig, OpenAIConfig, LlamaConfig
 import streamlit as st
-import openai
-import os
 
 
-def set_page_configuration():
+def load_config(service_name: str) -> BaseConfig:
     '''
-    Set the page configuration for Streamlit app.
+    Load the configuration for the specified service.
     '''
-    st.set_page_config(
-        page_title="Chat with the assistant",
-        page_icon="🦙",
-        layout="centered",
-        initial_sidebar_state="auto",
-        menu_items=None
-    )
+    config_mapping = {
+        "Streamlit": StreamlitConfig(
+            PAGE_TITLE="Chat with the assistant",
+            PAGE_ICON="🦙",
+            LAYOUT="centered",
+            INITIAL_SIDEBAR_STATE="auto",
+            MENU_ITEMS=[]
+        ),
+        "OpenAI": OpenAIConfig(
+            API_KEY=st.secrets["openai_key"]
+        ),
+        "Llama": LlamaConfig(
+            INDEX_NAME='your_index_name',
+            DIRECTORY_PATH='./data/llama_data',
+            MODEL="gpt-3.5-turbo",
+            TEMPERATURE=0.5,
+            SYSTEM_PROMPT="Your custom prompt here"
+        )
+    }
 
-
-def set_openai_key():
-    '''
-    Set the OpenAI API key from Streamlit secrets.
-    '''
-    openai.api_key = st.secrets["openai_key"]
-    os.environ["OPENAI_API_KEY"] = st.secrets["openai_key"]
+    if service_name in config_mapping:
+        return config_mapping[service_name]
+    else:
+        raise ValueError(f"Invalid service name: {service_name}")

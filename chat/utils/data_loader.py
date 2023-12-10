@@ -5,16 +5,21 @@ from llama_index.llms import OpenAI
 from llama_index import SimpleDirectoryReader, ServiceContext, VectorStoreIndex
 import streamlit as st
 
+from chat.configs import DIRECTORY_PATH, MODEL, TEMPERATURE, SYSTEM_PROMPT
 
-@st.cache_resource(show_spinner=False)
+
 def load_data():
     '''
-    Load and index the documents.
+    Load and index the documents using configurations from LlamaConfig.
     '''
-    with st.spinner(text="Loading and indexing the docs – hang tight! This should take 1-2 minutes."):
-        reader = SimpleDirectoryReader(input_dir="./data", recursive=True)
+    with st.spinner("Loading and indexing the docs – hang tight!"):
+        reader = SimpleDirectoryReader(input_dir=DIRECTORY_PATH, recursive=True)
         docs = reader.load_data()
-        service_context = ServiceContext.from_defaults(llm=OpenAI(model="gpt-3.5-turbo", temperature=0.5, system_prompt="You are an expert on the financial market and your job is to answer detailed questions about finance. Assume that all questions are related to the finance. Keep your answers concice and based on facts you have been provided with which is a query of data – do not hallucinate features."))
+        service_context = ServiceContext.from_defaults(
+            llm=OpenAI(model=MODEL,
+                       temperature=TEMPERATURE,
+                       system_prompt=SYSTEM_PROMPT)
+        )
         index = VectorStoreIndex.from_documents(docs, service_context=service_context)
         query_engine = index.as_query_engine()
         return query_engine
