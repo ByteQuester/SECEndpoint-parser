@@ -35,10 +35,7 @@ python run.py --ciks 0000012927
 
 This command processes and stores data for the specified CIK numbers.
 
-Later on you are able to chat with a chatbot about the context of these numbers. See demo here below or [here](https://youtu.be/CgyITuGlQZ4).
-<p align="center">
-  <iframe width="560" height="315" src="https://youtu.be/CgyITuGlQZ4" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-</p>
+Later on you are able to chat with a chatbot about the context of these numbers. See demo [here](https://youtu.be/CgyITuGlQZ4).
 
 
 A comprehensive guidelines and detailed features will be released soon.

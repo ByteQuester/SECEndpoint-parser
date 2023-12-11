@@ -2,12 +2,14 @@
 This class manages data operations.
 #TODO in execute query function implement a different a new name configuration: cik_query_YYYYMMDD.csv
 """
+from datetime import datetime
 import os
 import pandas as pd
 
 from apps.configs import SnowflakeConfig
 from apps.functions import SECAPIClient, FinancialDataProcessor, SnowflakeDataManager, LoggingManager
 from apps.queries import ASSET_LIABILITIES, CASH_FLOW, DEBT_MANAGEMENT, LIQUIDITY, MARKET_VALUATION , OPERATIONAL_EFFICIENCY, PROFITABILITY, QUERY_FILES
+from apps.utils import FileVersionManager
 
 
 class DataPipelineIntegration:
@@ -22,6 +24,7 @@ class DataPipelineIntegration:
             self.snowflake_config = snowflake_config if snowflake_config else SnowflakeConfig()
             self.snowflake_manager = SnowflakeDataManager(self.snowflake_config)
         self.error_handler = LoggingManager()
+        self.document = FileVersionManager()
 
     def _setup_local_storage(self):
         """
@@ -31,28 +34,35 @@ class DataPipelineIntegration:
             os.makedirs(self.local_storage_dir)
             self.error_handler.log(f"Created local storage directory at {self.local_storage_dir}", "INFO")
 
-    def store_data_locally(self, data, file_name=None):
-        """
-        Store data in a CSV file locally.
-        """
-        if file_name is None:
-            file_name = f"data_{self.cik_number}.csv" if self.cik_number else "data.csv"
-        file_path = os.path.join(self.local_storage_dir, file_name)
-
-        try:
-            data.to_csv(file_path, index=False)
-            self.error_handler.log(f"Data stored locally at {file_path}", "INFO")
-        except Exception as e:
-            self.error_handler.log_error(e, "ERROR")
-
-    def store_data(self, data):
+    def store_data(self, data, query_name=None, timestamp=None):
         """
         Store the processed data either locally or in Snowflake.
         """
         if self.use_snowflake:
             self.snowflake_manager.upload_data(data)
         else:
-            self.store_data_locally(data, file_name=None)
+            self.store_data_locally(data, query_name, timestamp)
+
+    def store_data_locally(self, data, query_name=None, timestamp=None):
+        """
+        Store data in a CSV file locally.
+        """
+        if timestamp is None:
+            timestamp = datetime.now().strftime('%Y%m%d')
+        if self.cik_number and query_name:
+            cik_folder = str(int(self.cik_number))
+            dir_path = os.path.join(self.local_storage_dir, cik_folder, query_name.replace(' ', '_'))
+            os.makedirs(dir_path, exist_ok=True)
+            file_name = f"{self.cik_number}_{query_name.replace(' ', '_')}_{timestamp}.csv"
+            file_path = os.path.join(dir_path, file_name)
+            try:
+                data.to_csv(file_path, index=False)
+                self.error_handler.log(f"Data stored locally at {file_path}", "INFO")
+                self.document.update_index_file(self.cik_number, query_name, file_path)
+            except Exception as e:
+                self.error_handler.log_error(e, "ERROR")
+        else:
+            self.error_handler.log("CIK number or query name not provided.", "ERROR")
 
     def fetch_data(self, cik_number=None):
         """
@@ -84,34 +94,57 @@ class DataPipelineIntegration:
             self.error_handler.log_error(e, "ERROR")
             return {"error": str(e)}
 
-    def execute_query(self, query_name):
-        """
-        Execute a SQL query based on its name.
-        Args:
-            query_name (str): Name of the query to execute.
-        Returns:
-            DataFrame: Query results as a pandas DataFrame.
-        """
-        query_filename = QUERY_FILES.get(query_name)
-        if query_filename is None:
-            self.error_handler.log(f"Query name '{query_name}' not found.", "ERROR")
-            return None
-
-        if self.use_snowflake:
-            return self.snowflake_manager.execute_query_from_file(query_filename)
+    def store_preprocessed_data(self, data):
+        if self.cik_number:
+            raw_dir_path = os.path.join(self.local_storage_dir, str(int(self.cik_number)), 'raw')
+            os.makedirs(raw_dir_path, exist_ok=True)
+            file_path = os.path.join(raw_dir_path, f"raw_data_{self.cik_number}.csv")
+            data.to_csv(file_path, index=False)
+            self.error_handler.log(f"Raw data stored locally at {file_path}", "INFO")
         else:
-            return self._execute_query_locally(query_name)
+            self.error_handler.log("CIK number not provided.", "ERROR")
+
+    def execute_query(self, query_names):
+        """
+        Execute one or more SQL queries based on their names.
+        Args:
+            query_names (str or list of str): Name(s) of the query(ies) to execute.
+        Returns:
+            dict: A dictionary with query names as keys and query results as values.
+        """
+        if isinstance(query_names, str):
+            query_names = [query_names]
+
+        results = {}
+        for query_name in query_names:
+            query_filename = QUERY_FILES.get(query_name)
+            if query_filename is None:
+                self.error_handler.log(f"Query name '{query_name}' not found.", "ERROR")
+                results[query_name] = None
+                continue
+
+            if self.use_snowflake:
+                results[query_name] = self.snowflake_manager.execute_query_from_file(query_filename)
+            else:
+                results[query_name] = self._execute_query_locally(query_name)
+
+        return results
 
     def _execute_query_locally(self, query_name):
         """
         Execute a query on locally stored data using a query file.
         Args:
-            query_filename (str): Path to a SQL file containing the query.
+            query_name (str): Path to a SQL file containing the query.
         Returns:
             DataFrame: Query results as a pandas DataFrame.
         """
-        data_file_path = os.path.join(self.local_storage_dir, f"data_{self.cik_number}.csv")
-        df = pd.read_csv(data_file_path)
+        # Adjust the file path to match the new storage structure
+        raw_file_path = os.path.join(self.local_storage_dir, str(int(self.cik_number)), 'raw',
+                                     f"raw_data_{self.cik_number}.csv")
+        if not os.path.exists(raw_file_path):
+            self.error_handler.log(f"No raw data file found for CIK {self.cik_number}.", "ERROR")
+            return None
+        df = pd.read_csv(raw_file_path)
 
         if query_name == 'Assets Liabilities':
             return ASSET_LIABILITIES(df)
