@@ -23,14 +23,12 @@ openai_config = OpenAIConfig(
 OPENAI_API_KEY = openai_config.API_KEY
 
 llama_config = LlamaConfig(
-    INDEX_NAME='your_index_name',
-    DIRECTORY_PATH='./data/llama_data',
+    DIRECTORY_PATH='./data',
     MODEL="gpt-3.5-turbo",
     TEMPERATURE=0.5,
     SYSTEM_PROMPT="Your custom prompt here"
 )
 
-INDEX_NAME = llama_config.INDEX_NAME
 DIRECTORY_PATH = llama_config.DIRECTORY_PATH
 MODEL = llama_config.MODEL
 TEMPERATURE = llama_config.TEMPERATURE
@@ -39,5 +37,5 @@ SYSTEM_PROMPT = llama_config.SYSTEM_PROMPT
 __all__ = [
     'PAGE_TITLE', 'PAGE_ICON', 'LAYOUT', 'INITIAL_SIDEBAR_STATE', 'MENU_ITEMS',
     'OPENAI_API_KEY',
-    'INDEX_NAME', 'DIRECTORY_PATH', 'MODEL', 'TEMPERATURE', 'SYSTEM_PROMPT'
+    'DIRECTORY_PATH', 'MODEL', 'TEMPERATURE', 'SYSTEM_PROMPT'
 ]

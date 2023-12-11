@@ -21,11 +21,10 @@ def load_config(service_name: str) -> BaseConfig:
             API_KEY=st.secrets["openai_key"]
         ),
         "Llama": LlamaConfig(
-            INDEX_NAME='your_index_name',
-            DIRECTORY_PATH='./data/llama_data',
+            DIRECTORY_PATH='./data',
             MODEL="gpt-3.5-turbo",
             TEMPERATURE=0.5,
-            SYSTEM_PROMPT="Your custom prompt here"
+            SYSTEM_PROMPT="You're a finance expert given a set of queries. Analyse the data and answer to the user's questions without hallucinating"
         )
     }
 

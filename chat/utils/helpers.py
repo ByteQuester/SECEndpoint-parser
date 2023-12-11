@@ -5,8 +5,9 @@ import streamlit as st
 
 
 class ChatHelper:
-    def __init__(self, openai_config):
-        self.openai_config = openai_config
+    def __init__(self):
+        # No need to pass or store openai_config here
+        pass
 
     def generate_response(self, query_engine, prompt):
         '''
@@ -15,6 +16,11 @@ class ChatHelper:
         try:
             with st.spinner("Thinking..."):
                 response = query_engine.query(prompt)
-                st.session_state.messages.append({"role": "assistant", "content": response.response})
+                if response is not None and response.response is not None:
+                    return response.response
+                else:
+                    return "I'm sorry, I couldn't generate a response."
         except Exception as e:
             st.error(f"Error generating response: {str(e)}")
+            return "I'm sorry, I couldn't generate a response."
+

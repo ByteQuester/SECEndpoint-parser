@@ -1,5 +1,6 @@
 """
 This class manages data operations.
+#TODO in execute query function implement a different a new name configuration: cik_query_YYYYMMDD.csv
 """
 import os
 import pandas as pd

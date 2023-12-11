@@ -22,7 +22,6 @@ class OpenAIConfig(BaseConfig):
 
 @dataclass
 class LlamaConfig(BaseConfig):
-    INDEX_NAME: str
     DIRECTORY_PATH: str
     MODEL: str
     TEMPERATURE: float
