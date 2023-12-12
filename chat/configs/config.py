@@ -2,7 +2,7 @@
 Load configuration classes based on service name.
 '''
 from config_classes import BaseConfig, StreamlitConfig, OpenAIConfig, LlamaConfig
-import streamlit as st
+import os
 
 
 def load_config(service_name: str) -> BaseConfig:
@@ -18,7 +18,7 @@ def load_config(service_name: str) -> BaseConfig:
             MENU_ITEMS=[]
         ),
         "OpenAI": OpenAIConfig(
-            API_KEY=st.secrets["openai_key"]
+            API_KEY=os.getenv("OPENAI_API_KEY")  # Get the API key from environment variable
         ),
         "Llama": LlamaConfig(
             DIRECTORY_PATH='./data',

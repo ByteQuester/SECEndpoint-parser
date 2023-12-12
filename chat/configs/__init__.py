@@ -1,6 +1,6 @@
 # In chat/configs/__init__.py
 from .config_classes import StreamlitConfig, OpenAIConfig, LlamaConfig
-import streamlit as st
+import os
 
 streamlit_config = StreamlitConfig(
     PAGE_TITLE="Chat with the assistant",
@@ -17,7 +17,7 @@ INITIAL_SIDEBAR_STATE = streamlit_config.INITIAL_SIDEBAR_STATE
 MENU_ITEMS = streamlit_config.MENU_ITEMS
 
 openai_config = OpenAIConfig(
-    API_KEY=st.secrets["openai_key"]
+    API_KEY=os.getenv("OPENAI_API_KEY")  # Get the API key from environment variable
 )
 
 OPENAI_API_KEY = openai_config.API_KEY

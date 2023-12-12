@@ -17,7 +17,11 @@ class StreamlitConfig(BaseConfig):
 
 @dataclass
 class OpenAIConfig(BaseConfig):
-    API_KEY: str
+    def __init__(self, API_KEY: str):
+        if not API_KEY:
+            raise ValueError("OpenAI API key is not set. Please set the OPENAI_API_KEY environment variable.")
+        self.API_KEY = API_KEY
+
 
 
 @dataclass

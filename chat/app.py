@@ -5,14 +5,14 @@ import streamlit as st
 import os
 import openai
 
-from chat.utils import ChatHelper, ChatInterface, load_data
-from chat.configs import PAGE_TITLE, PAGE_ICON, LAYOUT, OPENAI_API_KEY, INITIAL_SIDEBAR_STATE, MENU_ITEMS
+from utils import ChatHelper, ChatInterface, load_data
+from configs import PAGE_TITLE, PAGE_ICON, LAYOUT, INITIAL_SIDEBAR_STATE, MENU_ITEMS
 
 
 class ChatBot:
     def __init__(self):
         self.configure_page()
-        self.configure_openai_api()
+        #self.configure_openai_api()
         self.initialize_session_state()
         self.chat_interface = ChatInterface(PAGE_TITLE, PAGE_ICON, LAYOUT, INITIAL_SIDEBAR_STATE, MENU_ITEMS)
         self.chat_helper = ChatHelper()
@@ -27,9 +27,9 @@ class ChatBot:
             menu_items=None #MENU_ITEMS
         )
 
-    def configure_openai_api(self):
-        openai.api_key = OPENAI_API_KEY
-        os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+    #def configure_openai_api(self):
+        #openai.api_key = OPENAI_API_KEY
+        #os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 
     def initialize_session_state(self):
         if "messages" not in st.session_state:
