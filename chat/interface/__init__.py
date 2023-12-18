@@ -1,7 +1,7 @@
 from .ui_components import UIComponents
+from .app_interface import AppInterface
 
-
-CIK = UIComponents.select_cik_number()
-QUERY = UIComponents.select_query_type()
-DATE = UIComponents.select_date_range()
-SUBMIT = UIComponents.submit_button()
+__all__ = [
+    'AppInterface',
+    'UIComponents'
+]

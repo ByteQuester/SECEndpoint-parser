@@ -28,6 +28,8 @@ class AppInterface:
         # Method to display a plot
         pass
 
-    def display_data_table(self, data):
-        # Method to display a data table
-        pass
+    def display_data_table(self, df):
+        if df is not None:
+            st.dataframe(df)
+        else:
+            st.write("No data available")

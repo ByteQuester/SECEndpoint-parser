@@ -23,7 +23,6 @@ class DataLoader:
         return None
 
     def construct_directory_path(self,cik, query_type):
-        # Path to the folder
         folder_path = os.path.join(self.base_dir, str(cik), 'processed_data', query_type)
         if os.path.isdir(folder_path):
             return folder_path

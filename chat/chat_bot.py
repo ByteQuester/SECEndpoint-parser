@@ -26,14 +26,3 @@ class ChatBot:
             else:
                 st.session_state.messages.append(
                     {"role": "assistant", "content": "I'm sorry, I couldn't generate a response."})
-        # Display chat message handled by AppInterface in app.py self.chat_interface.display_chat_messages()
-        # #    # Initialize the application interface
-        #     app_interface = AppInterface()
-        # Setup and initialize other components like ChatBot
-        # ...
-
-        # Run the ChatBot component
-        # chat_bot = ChatBot(chat_engine_instance)
-        # chat_bot.run()
-
-        # Display other components like plots and data tables
