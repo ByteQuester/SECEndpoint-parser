@@ -23,10 +23,8 @@ class OpenAIConfig(BaseConfig):
         self.API_KEY = API_KEY
 
 
-
 @dataclass
 class LlamaConfig(BaseConfig):
-    DIRECTORY_PATH: str
     MODEL: str
     TEMPERATURE: float
     SYSTEM_PROMPT: str

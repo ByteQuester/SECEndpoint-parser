@@ -1,4 +1,4 @@
-# In chat/configs/__init__.py
+# In ./configs/__init__.py
 from .config_classes import StreamlitConfig, OpenAIConfig, LlamaConfig
 import os
 
@@ -23,13 +23,11 @@ openai_config = OpenAIConfig(
 OPENAI_API_KEY = openai_config.API_KEY
 
 llama_config = LlamaConfig(
-    DIRECTORY_PATH='./data',
     MODEL="gpt-3.5-turbo",
     TEMPERATURE=0.5,
     SYSTEM_PROMPT="Your custom prompt here"
 )
 
-DIRECTORY_PATH = llama_config.DIRECTORY_PATH
 MODEL = llama_config.MODEL
 TEMPERATURE = llama_config.TEMPERATURE
 SYSTEM_PROMPT = llama_config.SYSTEM_PROMPT
@@ -37,5 +35,5 @@ SYSTEM_PROMPT = llama_config.SYSTEM_PROMPT
 __all__ = [
     'PAGE_TITLE', 'PAGE_ICON', 'LAYOUT', 'INITIAL_SIDEBAR_STATE', 'MENU_ITEMS',
     'OPENAI_API_KEY',
-    'DIRECTORY_PATH', 'MODEL', 'TEMPERATURE', 'SYSTEM_PROMPT'
+    'MODEL', 'TEMPERATURE', 'SYSTEM_PROMPT'
 ]

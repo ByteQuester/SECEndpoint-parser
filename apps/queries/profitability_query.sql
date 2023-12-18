@@ -1,26 +1,50 @@
-SELECT 
-    EntityName AS Entity,
+-- Step 1: Preprocessing
+WITH preprocessed_data AS (
+    SELECT
+        EntityName,
+        CIK,
+        Metric,
+        CAST(end AS DATE) AS end_date,
+        value,
+        accn,
+        fy,
+        fp,
+        form,
+        filed,
+        frame,
+        SUBSTRING(frame, 3, 4) AS year,   -- Extract year
+        SUBSTRING(frame, 7, 2) AS quarter -- Extract quarter
+    FROM test_table
+    WHERE frame IS NOT NULL AND frame LIKE 'CY____Q_%'
+),
+
+-- Step 2: Pivot the table
+pivoted_data AS (
+    SELECT
+        EntityName,
+        CIK,
+        end_date,
+        year,
+        quarter,
+        MAX(CASE WHEN Metric = 'NetIncomeLoss' THEN value ELSE NULL END) AS NetIncomeLoss,
+        MAX(CASE WHEN Metric = 'Revenues' THEN value ELSE NULL END) AS Revenues,
+        MAX(CASE WHEN Metric = 'OperatingIncomeLoss' THEN value ELSE NULL END) AS OperatingIncomeLoss
+    FROM preprocessed_data
+    GROUP BY EntityName, CIK, end_date, year, quarter
+)
+
+-- Step 3: Perform calculations
+SELECT
+    EntityName AS ENTITY,
     CIK,
-    End AS Date,
-    ROUND(SUM(CASE WHEN Metric = 'NetIncomeLoss' THEN Value ELSE NULL END) / 1000000, 2) AS NetIncomeLoss,
-    ROUND(SUM(CASE WHEN Metric = 'Revenues' THEN Value ELSE NULL END) / 1000000, 2) AS Revenues,
-    ROUND(SUM(CASE WHEN Metric = 'OperatingIncomeLoss' THEN Value ELSE NULL END) / 1000000, 2) AS OperatingIncomeLoss,
-    CASE 
-        WHEN SUM(CASE WHEN Metric = 'Revenues' THEN Value ELSE NULL END) != 0 THEN 
-            ROUND((SUM(CASE WHEN Metric = 'NetIncomeLoss' THEN Value ELSE NULL END) / NULLIF(SUM(CASE WHEN Metric = 'Revenues' THEN Value ELSE NULL END), 0)) * 100, 2)
-        ELSE NULL 
+    end_date AS DATE,
+    NetIncomeLoss / 1000000 AS NetIncomeLoss_Million,
+    Revenues / 1000000 AS Revenues_Million,
+    OperatingIncomeLoss / 1000000 AS OperatingIncomeLoss_Million,
+    CASE
+        WHEN NetIncomeLoss IS NOT NULL AND Revenues IS NOT NULL AND Revenues != 0 THEN (NetIncomeLoss / Revenues) * 100
+        ELSE NULL
     END AS ProfitMarginPercent,
-    CASE 
-        WHEN EXTRACT(MONTH FROM End) IN (1, 2, 3) THEN CONCAT('Q1-', EXTRACT(YEAR FROM End))
-        WHEN EXTRACT(MONTH FROM End) IN (4, 5, 6) THEN CONCAT('Q2-', EXTRACT(YEAR FROM End))
-        WHEN EXTRACT(MONTH FROM End) IN (7, 8, 9) THEN CONCAT('Q3-', EXTRACT(YEAR FROM End))
-        ELSE CONCAT('Q4-', EXTRACT(YEAR FROM End))
-    END AS Quarter
-FROM 
-    test_table
-WHERE 
-    Metric IN ('NetIncomeLoss', 'Revenues', 'OperatingIncomeLoss')
-GROUP BY 
-    EntityName, CIK, End
-ORDER BY 
-    EntityName, CIK, End;
+    year AS Year,
+    quarter AS Quarter
+FROM pivoted_data;

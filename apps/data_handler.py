@@ -1,14 +1,12 @@
 """
 This class manages data operations.
-#TODO in execute query function implement a different a new name configuration: cik_query_YYYYMMDD.csv
 """
-from datetime import datetime
 import os
 import pandas as pd
 
 from apps.configs import SnowflakeConfig
-from apps.functions import SECAPIClient, FinancialDataProcessor, SnowflakeDataManager, LoggingManager
-from apps.queries import ASSET_LIABILITIES, CASH_FLOW, DEBT_MANAGEMENT, LIQUIDITY, MARKET_VALUATION , OPERATIONAL_EFFICIENCY, PROFITABILITY, QUERY_FILES
+from apps.functions import SECAPIClient, SnowflakeDataManager, LoggingManager, DataStorageManager, AnnualDataProcessor, QuarterlyDataProcessor
+from apps.queries import ASSET_LIABILITIES, CASH_FLOW, DEBT_MANAGEMENT, LIQUIDITY, MARKET_VALUATION, OPERATIONAL_EFFICIENCY, PROFITABILITY, QUERY_FILES
 from apps.utils import FileVersionManager
 
 
@@ -17,52 +15,29 @@ class DataPipelineIntegration:
         self.cik_number = cik_number
         self.use_snowflake = use_snowflake
         self.local_storage_dir = local_storage_dir
-        self._setup_local_storage()
         self.sec_client = SECAPIClient()
-        self.data_processor = FinancialDataProcessor(self.sec_client)
         if self.use_snowflake:
             self.snowflake_config = snowflake_config if snowflake_config else SnowflakeConfig()
             self.snowflake_manager = SnowflakeDataManager(self.snowflake_config)
         self.error_handler = LoggingManager()
-        self.document = FileVersionManager()
+        self.document = FileVersionManager(base_dir=local_storage_dir)
+        self.data_storage_manager = DataStorageManager(local_storage_dir, cik_number)
+        self._init_metrics()
 
-    def _setup_local_storage(self):
-        """
-        Set up the local storage directory.
-        """
-        if not os.path.exists(self.local_storage_dir):
-            os.makedirs(self.local_storage_dir)
-            self.error_handler.log(f"Created local storage directory at {self.local_storage_dir}", "INFO")
-
-    def store_data(self, data, query_name=None, timestamp=None):
-        """
-        Store the processed data either locally or in Snowflake.
-        """
-        if self.use_snowflake:
-            self.snowflake_manager.upload_data(data)
-        else:
-            self.store_data_locally(data, query_name, timestamp)
-
-    def store_data_locally(self, data, query_name=None, timestamp=None):
-        """
-        Store data in a CSV file locally.
-        """
-        if timestamp is None:
-            timestamp = datetime.now().strftime('%Y%m%d')
-        if self.cik_number and query_name:
-            cik_folder = str(int(self.cik_number))
-            dir_path = os.path.join(self.local_storage_dir, cik_folder, query_name.replace(' ', '_'))
-            os.makedirs(dir_path, exist_ok=True)
-            file_name = f"{self.cik_number}_{query_name.replace(' ', '_')}_{timestamp}.csv"
-            file_path = os.path.join(dir_path, file_name)
-            try:
-                data.to_csv(file_path, index=False)
-                self.error_handler.log(f"Data stored locally at {file_path}", "INFO")
-                self.document.update_index_file(self.cik_number, query_name, file_path)
-            except Exception as e:
-                self.error_handler.log_error(e, "ERROR")
-        else:
-            self.error_handler.log("CIK number or query name not provided.", "ERROR")
+    def _init_metrics(self):
+        self.metrics = {
+            'Annual': ['CapitalExpendituresIncurredButNotYetPaid', 'NetCashProvidedByUsedInOperatingActivities',
+                       'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities'],
+            'Quarterly': ['Assets', 'Liabilities', 'StockholdersEquity', 'AssetsCurrent', 'LiabilitiesCurrent',
+                          'OperatingIncomeLoss', 'Revenues', 'NetIncomeLoss']
+        }
+        self.category_metric_map = {
+            # 'Investment Efficiency': ['CapitalExpendituresIncurredButNotYetPaid', 'NetIncomeLoss', 'Assets'],
+            'Liquidity': ['AssetsCurrent', 'LiabilitiesCurrent'],
+            # 'Assets and Liabilities': ['Assets', 'Liabilities', 'StockholdersEquity'],
+            'Profitability': ['OperatingIncomeLoss', 'Revenues', 'NetIncomeLoss']
+            # 'Cash Flow': ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities']
+        }
 
     def fetch_data(self, cik_number=None):
         """
@@ -83,26 +58,76 @@ class DataPipelineIntegration:
             self.error_handler.log_error(e, "ERROR")
             return {"error": str(e)}
 
-    def preprocess_data(self, data):
+    def preprocess_data(self, raw_data):
         """
-        Preprocess the fetched data.
+        Preprocess the raw data using the defined metrics, store using FileVersionManager, and store the data.
+        Args:
+            raw_data (dict): The raw data fetched from the SEC API.
         """
         try:
-            processed_data = self.data_processor.process_data({'company_facts': data})
-            return processed_data
+            df = pd.DataFrame(raw_data)
+            annual_processor = AnnualDataProcessor(df)
+            quarterly_processor = QuarterlyDataProcessor(df)
+
+            for category, metrics in self.category_metric_map.items():
+                if category in ['Assets and Liabilities', 'Liquidity', 'Profitability']:
+                    preprocessed_data = quarterly_processor.process_data(metrics)
+                else:
+                    preprocessed_data = annual_processor.process_data(metrics)
+
+                if self.use_snowflake:
+                    self.snowflake_manager.upload_data(preprocessed_data, category)
+                    self.error_handler.log(f"Preprocessed data for {category} uploaded to Snowflake.", "INFO")
+                else:
+                    file_name = self.data_storage_manager.store_data(preprocessed_data, 'preprocessed_data', category)
+                    if file_name:
+                        self.document.update_index(self.cik_number, category, file_name, 'preprocessed_data')
+                    else:
+                        self.error_handler.log(f"Failed to store preprocessed data for {category}", "ERROR")
+
         except Exception as e:
             self.error_handler.log_error(e, "ERROR")
             return {"error": str(e)}
 
-    def store_preprocessed_data(self, data):
-        if self.cik_number:
-            raw_dir_path = os.path.join(self.local_storage_dir, str(int(self.cik_number)), 'raw')
-            os.makedirs(raw_dir_path, exist_ok=True)
-            file_path = os.path.join(raw_dir_path, f"raw_data_{self.cik_number}.csv")
-            data.to_csv(file_path, index=False)
-            self.error_handler.log(f"Raw data stored locally at {file_path}", "INFO")
-        else:
-            self.error_handler.log("CIK number not provided.", "ERROR")
+    def process_and_store_data(self, specific_queries=None):
+        """
+        Process the preprocessed data by running queries and store the results.
+        Args:
+            specific_queries (list of str, optional): Specific queries to execute. If None, all categories are processed.
+        """
+        try:
+            categories_to_process = specific_queries if specific_queries else self.category_metric_map.keys()
+
+            for category in categories_to_process:
+                # Check if the category is valid
+                if category not in self.category_metric_map:
+                    self.error_handler.log(f"Invalid category or query name: {category}", "WARNING")
+                    continue
+
+                # Retrieve the preprocessed data file path for the category
+                preprocessed_file_path = self.data_storage_manager.get_processed_data_file_path(category)
+                if not preprocessed_file_path:
+                    self.error_handler.log(f"No preprocessed data found for {category}", "WARNING")
+                    continue
+
+                # Execute the query related to the category
+                query_result = self.execute_query(category)
+
+                # Store the query result if it's valid
+                if query_result and category in query_result and query_result[category] is not None:
+                    processed_file_name = self.data_storage_manager.store_data(query_result[category], 'processed_data',
+                                                                               category)
+
+                    # Update index file with the new or updated file path
+                    if processed_file_name:
+                        self.document.update_index(self.cik_number, category, processed_file_name, 'processed_data')
+
+                else:
+                    self.error_handler.log(f"No valid results for query {category}.", "WARNING")
+
+        except Exception as e:
+            self.error_handler.log_error(e, "ERROR")
+            return {"error": str(e)}
 
     def execute_query(self, query_names):
         """
@@ -139,12 +164,11 @@ class DataPipelineIntegration:
             DataFrame: Query results as a pandas DataFrame.
         """
         # Adjust the file path to match the new storage structure
-        raw_file_path = os.path.join(self.local_storage_dir, str(int(self.cik_number)), 'raw',
-                                     f"raw_data_{self.cik_number}.csv")
-        if not os.path.exists(raw_file_path):
-            self.error_handler.log(f"No raw data file found for CIK {self.cik_number}.", "ERROR")
+        processed_file_path = self.data_storage_manager.get_processed_data_file_path(query_name)
+        if not os.path.exists(processed_file_path):
+            self.error_handler.log(f"No processed data file found for query {query_name}.", "ERROR")
             return None
-        df = pd.read_csv(raw_file_path)
+        df = pd.read_csv(processed_file_path)
 
         if query_name == 'Assets Liabilities':
             return ASSET_LIABILITIES(df)
@@ -157,9 +181,8 @@ class DataPipelineIntegration:
         elif query_name == 'Operational Efficiency':
             return OPERATIONAL_EFFICIENCY(df)
         elif query_name == 'Market Valuation':
-            return MARKET_VALUATION(df, stock_price_df=None) #TODO: implement stock price
+            return MARKET_VALUATION(df, stock_price_df=None)  # TODO: implement stock price
         elif query_name == 'Profitability':
             return PROFITABILITY(df)
         else:
             self.error_handler.log(f"Query name '{query_name}' not implemented for local execution.", "ERROR")
-            return None

@@ -2,15 +2,13 @@
 This class manages connections and data operations with Snowflake.
 It handles establishing a connection to Snowflake, uploading data,
 executing queries, including those from SQL files, and closing the connection.
-Attributes:
-    connection (SnowflakeConnection): A Snowflake connection object.
 """
-# TODO: highest priority to dynamic handling of stage and table names for flexibility
+# TODO: Dynamic Handling of Stage and Table Names
 # TODO: automate schema detection and table creation from data input
 # TODO: support to include additional file formats
 # TODO: documentation with detailed descriptions and usage examples
-# TODO: security features for data encryption and compliance
-# TODO: maybe enhanced error handling
+# TODO: Snowflake Stage Existence and Authorization Check
+# TODO: Enhanced error handling
 #  This class is our humble attempt to bring data to the table (quite literally).
 
 import os
@@ -18,7 +16,7 @@ import pandas as pd
 from snowflake import connector
 
 from apps.configs import SnowflakeConfig
-from apps.functions.managers import LoggingManager  # Update this import based on your structure
+from apps.functions.managers import LoggingManager
 from apps.types import CSV_FILE_PATH, DEFAULT_TABLE_NAME
 from apps.utils import dataframe_to_csv
 
@@ -93,6 +91,13 @@ class SnowflakeDataManager:
 
             # Upload CSV to Snowflake Stage
             self.put_file_to_stage(CSV_FILE_PATH, put_stage_name)
+
+            # Delete the local CSV file after upload
+            try:
+                os.remove(CSV_FILE_PATH)
+                print(f"Temporary file {CSV_FILE_PATH} deleted successfully.")
+            except Exception as e:
+                self.error_handler.log(f"Error deleting temporary file: {e}", "ERROR")
 
             # Generate the stage name for COPY command
             copy_stage_name = self._generate_stage_name(table_name, 'COPY')
@@ -208,7 +213,14 @@ class SnowflakeDataManager:
                        CIK INT,
                        Metric VARCHAR(255),
                        End DATE,
-                       Value FLOAT
+                       Value FLOAT,
+                       accn VARCHAR(255),
+                       fy INT,
+                       fp VARCHAR(10),
+                       form VARCHAR(10),
+                       filed DATE,
+                       frame VARCHAR(50),
+                       start DATE
                    )
                    """
             cursor.execute(sql)

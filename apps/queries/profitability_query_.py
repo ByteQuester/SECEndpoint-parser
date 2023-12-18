@@ -1,23 +1,38 @@
+import pandas as pd
+
+
 def profitability_query(df):
-    filtered_df = df[df['Metric'].isin(['NetIncomeLoss', 'Revenues', 'OperatingIncomeLoss'])]
+    # Pivot the DataFrame so that each metric becomes a column
+    pivot_df = df.pivot_table(index=['EntityName', 'CIK', 'end', 'year', 'quarter', 'start'],
+                              columns='Metric',
+                              values='val')
 
-    grouped_df = filtered_df.groupby(['EntityName', 'CIK', 'End'])
+    # Reset index to make 'EntityName', 'CIK', 'end', 'year', 'quarter', 'start' columns again
+    pivot_df.reset_index(inplace=True)
 
-    result_df = grouped_df.agg({
-        'Value': {
-            'NetIncomeLoss': lambda x: round(x[df['Metric'] == 'NetIncomeLoss'].sum() / 1000000, 2),
-            'Revenues': lambda x: round(x[df['Metric'] == 'Revenues'].sum() / 1000000, 2),
-            'OperatingIncomeLoss': lambda x: round(x[df['Metric'] == 'OperatingIncomeLoss'].sum() / 1000000, 2)
-        }
-    })
+    # Rename columns to remove MultiIndex
+    pivot_df.columns.name = None
 
-    result_df['ProfitMarginPercent'] = result_df.apply(
-        lambda row: round((row['Value']['NetIncomeLoss'] / row['Value']['Revenues']) * 100, 2)
-        if row['Value']['Revenues'] != 0 else None, axis=1
-    )
+    # Create a copy of the DataFrame to avoid SettingWithCopyWarning
+    df_final = pivot_df.copy()
 
-    result_df['Quarter'] = result_df.index.get_level_values('End').map(
-        lambda date: f"Q{((date.month-1)//3)+1}-{date.year}"
-    )
+    # 1. Convert 'end' column to datetime in df_final
+    df_final['end'] = pd.to_datetime(df_final['end'], format='%Y-%m-%d')
 
-    return result_df.reset_index()
+    # 2. Convert financial values from cents to millions for readability in df_final
+    df_final['NetIncomeLoss'] /= 1000000
+    df_final['Revenues'] /= 1000000
+    df_final['OperatingIncomeLoss'] /= 1000000
+
+    # 3. Calculate Profit Margin where data is available in df_final
+    df_final['ProfitMarginPercent'] = df_final.apply(
+        lambda row: (row['NetIncomeLoss'] / row['Revenues']) * 100
+        if pd.notna(row['NetIncomeLoss']) and pd.notna(row['Revenues']) and row['Revenues'] != 0
+        else None, axis=1)
+
+    # 4. Select and rename columns in df_final
+    df_final = df_final[
+        ['EntityName', 'CIK', 'end', 'NetIncomeLoss', 'Revenues', 'OperatingIncomeLoss', 'ProfitMarginPercent', 'year', 'quarter']]
+    df_final.rename(columns={'EntityName': 'ENTITY', 'end': 'DATE', 'year': 'Year', 'quarter': 'Quarter'}, inplace=True)
+
+    return df_final

@@ -8,5 +8,6 @@ __all__ = [
     'FileVersionManager',
     'now',
     'dataframe_to_csv',
-    'Roster'
+    'Roster',
+    'now'
 ]

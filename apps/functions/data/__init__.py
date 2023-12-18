@@ -1,7 +1,9 @@
 # In apps/functions/data/__init__.py
 
-from .data_wrangler import FinancialDataProcessor
+from .data_wrangler import FinancialDataProcessor, AnnualDataProcessor, QuarterlyDataProcessor
 
 __all__ = [
-    'FinancialDataProcessor'
+    'AnnualDataProcessor',
+    'FinancialDataProcessor',
+    'QuarterlyDataProcessor'
 ]

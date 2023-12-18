@@ -10,6 +10,7 @@ This file contains the enhanced implementation of the SECAPIClient class.
 from cachetools import TTLCache
 import requests
 import time
+import pandas as pd
 
 from apps.functions.managers import LoggingManager
 from apps.types import BASE_URL
@@ -32,20 +33,27 @@ class SECAPIClient:
         """
         Fetch company tickers from the SEC API.
         Returns:
-            dict: The response from the API.
+            pd.DataFrame or dict: The response from the API as a DataFrame, or a dict in case of error.
         """
         key = 'company_tickers'
-        cached_data = self._get_from_cache(key)
-        if cached_data:
-            return cached_data
+        cached_response = self._get_from_cache(key)
+        if cached_response:
+            # If cached data is found, parse it and return
+            return self._parse_response(cached_response, 'tickers')
 
         url = self.roster.api_endpoints["company_tickers"]
         response = self._send_get_request(url)
         if response:
+            # Store the raw response in the cache instead of the parsed data
+            self._store_in_cache(key, response, expiry=3600)  # Cache for 1 hour
+
+            # Parse the response and return
             parsed_data = self._parse_response(response, 'tickers')
-            if parsed_data:
-                self._store_in_cache(key, parsed_data, expiry=3600)  # Cache for 1 hour
+            if isinstance(parsed_data, pd.DataFrame):
                 return parsed_data
+            else:
+                return {'error': 'Failed to parse company tickers'}
+
         return {'error': 'Failed to fetch company tickers'}
 
     def fetch_submissions(self, cik_number):
@@ -63,11 +71,13 @@ class SECAPIClient:
         url = self.roster.recruit_cik(cik_number).api_endpoints["submissions"]
         response = self._send_get_request(url)
         if response:
+            self._store_in_cache(key, response, expiry=3600)  # Cache for 1 hour
+
             parsed_data = self._parse_response(response, 'submissions')
-            if parsed_data:
-                self._store_in_cache(key, parsed_data, expiry=3600)  # Cache for 1 hour
+            if isinstance(parsed_data, pd.DataFrame):
                 return parsed_data
-        return {'error': 'Failed to fetch submissions'}
+            else:
+                return {'error': 'Failed to parse company submissions'}
 
     def fetch_company_facts(self, cik_number):
         """
@@ -75,19 +85,27 @@ class SECAPIClient:
         Args:
             cik_number (str): The CIK number of the company.
         Returns:
-            dict: The response from the API.
+            pd.DataFrame or dict: The response from the API as a DataFrame, or a dict in case of error.
         """
         key = f'company_facts_{cik_number}'
-        cached_data = self._get_from_cache(key)
-        if cached_data:
-            return cached_data
+        cached_response = self._get_from_cache(key)
+        if cached_response:
+            # Parse the cached response and return
+            return self._parse_response(cached_response, 'company_facts')
+
         url = self.roster.recruit_cik(cik_number).api_endpoints["company_facts"]
         response = self._send_get_request(url)
         if response:
+            # Cache the raw response for future use
+            self._store_in_cache(key, response, expiry=3600)  # Cache for 1 hour
+
+            # Parse the response and return
             parsed_data = self._parse_response(response, 'company_facts')
-            if parsed_data:
-                self._store_in_cache(key, parsed_data, expiry=3600)  # Cache for 1 hour
+            if isinstance(parsed_data, pd.DataFrame):
                 return parsed_data
+            else:
+                return {'error': 'Failed to parse company facts'}
+
         return {'error': 'Failed to fetch company facts'}
 
     def _send_get_request(self, url):
@@ -128,7 +146,7 @@ class SECAPIClient:
             response (dict): The raw JSON response from the SEC API.
             response_type (str): The type of data (e.g., 'tickers', 'submissions', 'company_facts').
         Returns:
-            dict or None: The parsed response.
+            pd.DataFrame or None: The parsed response as a DataFrame, or None in case of error.
         """
         try:
             if response_type == 'tickers':
@@ -139,24 +157,30 @@ class SECAPIClient:
                 pass
             elif response_type == 'company_facts':
                 entityname, cik = response['entityName'], response['cik']
-                parsed_data = {}
+                all_flattened_data = []
+
                 for metric_key, metric_data in response['facts']['us-gaap'].items():
                     if 'units' in metric_data and 'USD' in metric_data['units']:
                         usd_data = metric_data['units']['USD']
-                        parsed_data[metric_key] = [{'end': item['end'], 'val': item['val']} for item in usd_data]
-                return {
-                "EntityName": entityname,
-                "CIK": cik,
-                "ParsedData": parsed_data
-            }
+
+                        flattened_data = [
+                            {
+                                'EntityName': entityname,
+                                'CIK': cik,
+                                'Metric': metric_key,
+                                **item  # Spread the individual item fields
+                            }
+                            for item in usd_data
+                        ]
+                        all_flattened_data.extend(flattened_data)
+
+                return pd.DataFrame(all_flattened_data)
             else:
-                error_message = f"Unknown response type: {response_type}"
-                self.error_handler.log_error(error_message)
-                return {'error': error_message}
+                self.error_handler.log_error(f"Unknown response type: {response_type}")
+                return None
         except Exception as e:
-            error_message = f"Error parsing response: {str(e)}"
-            self.error_handler.log_error(error_message)
-            return {'error': error_message}
+            self.error_handler.log_error(f"Error parsing response: {str(e)}")
+            return None
 
     def _get_from_cache(self, key):
         """

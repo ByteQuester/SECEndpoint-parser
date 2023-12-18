@@ -1,42 +1,32 @@
 import pandas as pd
 
+
 def assets_liability_query(df):
-    # Filter for Assets, Liabilities, and StockholdersEquity
-    filtered_df = df[df['Metric'].isin(['Assets', 'Liabilities', 'StockholdersEquity'])]
+    # Pivot the DataFrame so that each metric becomes a column
+    pivot_df = df.pivot_table(index=['EntityName', 'CIK', 'end', 'year', 'quarter'],
+                              columns='Metric',
+                              values='val')
 
-    # Group by EntityName, CIK, and End
-    grouped_df = filtered_df.groupby(['EntityName', 'CIK', 'End'])
+    # Reset index to make 'EntityName', 'CIK', 'end', 'year', 'quarter' columns again
+    pivot_df.reset_index(inplace=True)
 
-    # Perform aggregation within each group
-    def aggregate_group(group):
-        result = {
-            'Assets_Millions': round(group[group['Metric'] == 'Assets']['Value'].sum() / 1000000, 2),
-            'Liabilities_Millions': round(group[group['Metric'] == 'Liabilities']['Value'].sum() / 1000000, 2),
-            'Equity_Millions': round(group[group['Metric'] == 'StockholdersEquity']['Value'].sum() / 1000000, 2)
-        }
-        return pd.Series(result, index=['Assets_Millions', 'Liabilities_Millions', 'Equity_Millions'])
+    # Rename columns to remove MultiIndex
+    pivot_df.columns.name = None
 
-    result_df = grouped_df.apply(aggregate_group)
+    # 1. Convert 'end' column to datetime
+    pivot_df['end'] = pd.to_datetime(pivot_df['end'], format='%Y-%m-%d')
 
-    # Reset index to move 'EntityName', 'CIK', and 'End' back to columns
-    result_df = result_df.reset_index()
+    # 2. Convert financial values from cents to millions for readability
+    pivot_df['Assets'] /= 1000000
+    pivot_df['StockholdersEquity'] /= 1000000
+    pivot_df['Liabilities'] /= 1000000
 
-    # Convert 'End' to datetime
-    result_df['End'] = pd.to_datetime(result_df['End'])
+    # 3. Calculate Asset to Liability Ratio and Debt to Equity Ratio where data is available
+    pivot_df['AssetToLiabilityRatio'] = pivot_df.apply(lambda row: row['Assets'] / row['Liabilities'] if pd.notna(row['Liabilities']) else None, axis=1)
+    pivot_df['DebtToEquityRatio'] = pivot_df.apply(lambda row: row['Liabilities'] / row['StockholdersEquity'] if pd.notna(row['Liabilities']) and pd.notna(row['StockholdersEquity']) else None, axis=1)
 
-    # Calculate ratios where data is available
-    result_df['AssetToLiabilityRatio'] = result_df.apply(
-        lambda row: round(row['Assets_Millions'] / row['Liabilities_Millions'], 2) if row['Liabilities_Millions'] > 0 else None, axis=1
-    )
-    result_df['DebtToEquityRatio'] = result_df.apply(
-        lambda row: round(row['Liabilities_Millions'] / row['Equity_Millions'], 2) if row['Equity_Millions'] > 0 else None, axis=1
-    )
+    # 4. Selecting and renaming columns to match the desired format
+    df_final = pivot_df[['EntityName', 'CIK', 'end', 'Assets', 'Liabilities', 'StockholdersEquity', 'AssetToLiabilityRatio', 'DebtToEquityRatio', 'year', 'quarter']]
+    df_final.rename(columns={'EntityName': 'ENTITY', 'end': 'DATE', 'year': 'Year', 'quarter': 'Quarter'}, inplace=True)
 
-    # Construct the 'Quarter' column
-    result_df['Quarter'] = result_df['End'].apply(lambda date: f"Q{((date.month-1)//3)+1}-{date.year}")
-
-    return result_df
-
-# Example usage
-# df = load_your_dataframe_here()
-# result = assets_liability_query(df)
+    return df_final

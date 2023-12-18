@@ -1,25 +1,43 @@
-SELECT 
-    EntityName AS Entity,
+-- Step 1: Preprocessing
+WITH preprocessed_data AS (
+    SELECT
+        EntityName,
+        CIK,
+        Metric,
+        CAST(end AS DATE) AS end_date,
+        value,
+        SUBSTRING(frame, 3, 4) AS year,   -- Extract year
+        SUBSTRING(frame, 7, 2) AS quarter -- Extract quarter
+    FROM test_table
+    WHERE frame IS NOT NULL AND frame LIKE 'CY____Q_%'
+      AND Metric IN ('AssetsCurrent', 'LiabilitiesCurrent')
+),
+
+-- Step 2: Pivot the table
+pivoted_data AS (
+    SELECT
+        EntityName,
+        CIK,
+        end_date,
+        year,
+        quarter,
+        MAX(CASE WHEN Metric = 'AssetsCurrent' THEN value ELSE NULL END) AS CurrentAssets,
+        MAX(CASE WHEN Metric = 'LiabilitiesCurrent' THEN value ELSE NULL END) AS CurrentLiabilities
+    FROM preprocessed_data
+    GROUP BY EntityName, CIK, end_date, year, quarter
+)
+
+-- Step 3: Perform calculations
+SELECT
+    EntityName AS ENTITY,
     CIK,
-    End AS Date,
-    ROUND(SUM(CASE WHEN Metric = 'AssetsCurrent' THEN Value ELSE NULL END) / 1000000, 2) AS CurrentAssets,
-    ROUND(SUM(CASE WHEN Metric = 'LiabilitiesCurrent' THEN Value ELSE NULL END) / 1000000, 2) AS CurrentLiabilities,
+    end_date AS DATE,
+    CurrentAssets / 1000000 AS CurrentAssets_Million,
+    CurrentLiabilities / 1000000 AS CurrentLiabilities_Million,
     CASE
-        WHEN SUM(CASE WHEN Metric = 'LiabilitiesCurrent' THEN Value ELSE NULL END) > 0 THEN 
-            ROUND(SUM(CASE WHEN Metric = 'AssetsCurrent' THEN Value ELSE NULL END) / NULLIF(SUM(CASE WHEN Metric = 'LiabilitiesCurrent' THEN Value ELSE NULL END), 0), 2)
-        ELSE NULL 
+        WHEN CurrentLiabilities > 0 THEN CurrentAssets / CurrentLiabilities
+        ELSE NULL
     END AS CurrentRatio,
-    CASE
-        WHEN EXTRACT(MONTH FROM End) IN (1, 2, 3) THEN CONCAT('Q1-', EXTRACT(YEAR FROM End))
-        WHEN EXTRACT(MONTH FROM End) IN (4, 5, 6) THEN CONCAT('Q2-', EXTRACT(YEAR FROM End))
-        WHEN EXTRACT(MONTH FROM End) IN (7, 8, 9) THEN CONCAT('Q3-', EXTRACT(YEAR FROM End))
-        ELSE CONCAT('Q4-', EXTRACT(YEAR FROM End))
-    END AS Quarter
-FROM 
-    test_table
-WHERE 
-    Metric IN ('AssetsCurrent', 'LiabilitiesCurrent')
-GROUP BY 
-    EntityName, CIK, End
-ORDER BY 
-    EntityName, CIK, End;
+    year AS Year,
+    quarter AS Quarter
+FROM pivoted_data;

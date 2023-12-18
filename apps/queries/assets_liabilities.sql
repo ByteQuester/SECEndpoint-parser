@@ -1,32 +1,54 @@
-SELECT 
-    EntityName AS Entity,
+-- Step 1: Preprocessing
+WITH preprocessed_data AS (
+    SELECT
+        EntityName,
+        CIK,
+        Metric,
+        CAST(end AS DATE) AS end_date,
+        value,
+        accn,
+        fy,
+        fp,
+        form,
+        filed,
+        frame,
+        SUBSTRING(frame, 3, 4) AS year,   -- Extract year
+        SUBSTRING(frame, 7, 2) AS quarter -- Extract quarter
+    FROM test_table
+    WHERE frame IS NOT NULL AND frame LIKE 'CY____Q_%'
+),
+
+-- Step 2: Pivot the table
+pivoted_data AS (
+    SELECT
+        EntityName,
+        CIK,
+        end_date,
+        year,
+        quarter,
+        MAX(CASE WHEN Metric = 'Assets' THEN value ELSE NULL END) AS Assets,
+        MAX(CASE WHEN Metric = 'Liabilities' THEN value ELSE NULL END) AS Liabilities,
+        MAX(CASE WHEN Metric = 'StockholdersEquity' THEN value ELSE NULL END) AS StockholdersEquity
+    FROM preprocessed_data
+    GROUP BY EntityName, CIK, end_date, year, quarter
+)
+
+-- Step 3: Perform calculations
+SELECT
+    EntityName,
     CIK,
-    End,
-    TO_VARCHAR(ROUND(SUM(CASE WHEN Metric = 'Assets' THEN Value ELSE NULL END) / 1000000, 2), '999,999,999,990.00') AS Assets_M,
-    TO_VARCHAR(ROUND(SUM(CASE WHEN Metric = 'Liabilities' THEN Value ELSE NULL END) / 1000000, 2), '999,999,999,990.00') AS TotalLiabilities_Millions,
-    TO_VARCHAR(ROUND(SUM(CASE WHEN Metric = 'StockholdersEquity' THEN Value ELSE NULL END) / 1000000, 2), '999,999,999,990.00') AS Equity_Millions,
-    TO_VARCHAR(ROUND(CASE 
-            WHEN SUM(CASE WHEN Metric = 'Liabilities' THEN Value ELSE NULL END) > 0 THEN 
-                SUM(CASE WHEN Metric = 'Assets' THEN Value ELSE NULL END) / NULLIF(SUM(CASE WHEN Metric = 'Liabilities' THEN Value ELSE NULL END), 0)
-            ELSE NULL 
-          END, 2), '999,999,999,990.00') AS AssetToLiabilityRatio,
-    TO_VARCHAR(ROUND(CASE 
-            WHEN SUM(CASE WHEN Metric = 'StockholdersEquity' THEN Value ELSE NULL END) > 0 THEN 
-                SUM(CASE WHEN Metric = 'Liabilities' THEN Value ELSE NULL END) / NULLIF(SUM(CASE WHEN Metric = 'StockholdersEquity' THEN Value ELSE NULL END), 0)
-            ELSE NULL 
-          END, 2), '999,999,999,990.00') AS DebtToEquityRatio,
-    -- Calculating the quarter
-    CASE 
-        WHEN EXTRACT(MONTH FROM End) IN (1, 2, 3) THEN CONCAT('Q1-', EXTRACT(YEAR FROM End))
-        WHEN EXTRACT(MONTH FROM End) IN (4, 5, 6) THEN CONCAT('Q2-', EXTRACT(YEAR FROM End))
-        WHEN EXTRACT(MONTH FROM End) IN (7, 8, 9) THEN CONCAT('Q3-', EXTRACT(YEAR FROM End))
-        ELSE CONCAT('Q4-', EXTRACT(YEAR FROM End))
-    END AS Quarter
-FROM 
-    test_table
-WHERE 
-    Metric IN ('Assets', 'Liabilities', 'StockholdersEquity')
-GROUP BY 
-    EntityName, CIK, End
-ORDER BY 
-    EntityName, CIK, End;
+    end_date,
+    Assets / 1000000 AS Assets_Million,
+    Liabilities / 1000000 AS Liabilities_Million,
+    StockholdersEquity / 1000000 AS StockholdersEquity_Million,
+    CASE
+        WHEN Assets IS NOT NULL AND Liabilities IS NOT NULL AND Liabilities != 0 THEN Assets / Liabilities
+        ELSE NULL
+    END AS AssetToLiabilityRatio,
+    CASE
+        WHEN Liabilities IS NOT NULL AND StockholdersEquity IS NOT NULL AND StockholdersEquity != 0 THEN Liabilities / StockholdersEquity
+        ELSE NULL
+    END AS DebtToEquityRatio,
+    year,
+    quarter
+FROM pivoted_data;

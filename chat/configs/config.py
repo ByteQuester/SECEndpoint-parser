@@ -18,10 +18,9 @@ def load_config(service_name: str) -> BaseConfig:
             MENU_ITEMS=[]
         ),
         "OpenAI": OpenAIConfig(
-            API_KEY=os.getenv("OPENAI_API_KEY")  # Get the API key from environment variable
+            API_KEY=os.getenv("OPENAI_API_KEY")
         ),
         "Llama": LlamaConfig(
-            DIRECTORY_PATH='./data',
             MODEL="gpt-3.5-turbo",
             TEMPERATURE=0.5,
             SYSTEM_PROMPT="You're a finance expert given a set of queries. Analyse the data and answer to the user's questions without hallucinating"

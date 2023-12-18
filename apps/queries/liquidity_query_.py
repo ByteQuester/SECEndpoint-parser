@@ -1,22 +1,31 @@
+import pandas as pd
+
 def liquidity_query(df):
-    filtered_df = df[df['Metric'].isin(['AssetsCurrent', 'LiabilitiesCurrent'])]
+    # Pivot the DataFrame so that each metric becomes a column
+    pivot_df = df.pivot_table(index=['EntityName', 'CIK', 'end', 'year', 'quarter'],
+                              columns='Metric',
+                              values='val')
 
-    grouped_df = filtered_df.groupby(['EntityName', 'CIK', 'End'])
+    # Reset index to make 'EntityName', 'CIK', 'end', 'year', 'quarter' columns again
+    pivot_df.reset_index(inplace=True)
 
-    result_df = grouped_df.agg({
-        'Value': {
-            'CurrentAssets': lambda x: round(x[df['Metric'] == 'AssetsCurrent'].sum() / 1000000, 2),
-            'CurrentLiabilities': lambda x: round(x[df['Metric'] == 'LiabilitiesCurrent'].sum() / 1000000, 2),
-        }
-    })
+    # Rename columns to remove MultiIndex
+    pivot_df.columns.name = None
 
-    result_df['CurrentRatio'] = result_df.apply(
-        lambda row: round(row['Value']['CurrentAssets'] / row['Value']['CurrentLiabilities'], 2)
-        if row['Value']['CurrentLiabilities'] > 0 else None, axis=1
-    )
+    # 1. Convert 'end' column to datetime
+    pivot_df['end'] = pd.to_datetime(pivot_df['end'], format='%Y-%m-%d')
 
-    result_df['Quarter'] = result_df.index.get_level_values('End').map(
-        lambda date: f"Q{((date.month-1)//3)+1}-{date.year}"
-    )
+    # 2. Convert financial values from cents to millions for readability
+    pivot_df['CurrentAssets'] = pivot_df['AssetsCurrent'] / 1000000
+    pivot_df['CurrentLiabilities'] = pivot_df['LiabilitiesCurrent'] / 1000000
 
-    return result_df.reset_index()
+    # 3. Calculate the Current Ratio
+    pivot_df['CurrentRatio'] = pivot_df.apply(
+        lambda row: row['CurrentAssets'] / row['CurrentLiabilities']
+        if row['CurrentLiabilities'] > 0 else None, axis=1)
+
+    # 4. Selecting and renaming columns to match the desired format
+    df_final = pivot_df[['EntityName', 'CIK', 'end', 'CurrentAssets', 'CurrentLiabilities', 'CurrentRatio', 'year', 'quarter']]
+    df_final.rename(columns={'EntityName': 'ENTITY', 'end': 'DATE', 'year': 'Year', 'quarter': 'Quarter'}, inplace=True)
+
+    return df_final
