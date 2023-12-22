@@ -1,6 +1,5 @@
-from .ui_components import UIComponents
 from .app_interface import AppInterface
-
+from .ui import UIComponents
 __all__ = [
     'AppInterface',
     'UIComponents'

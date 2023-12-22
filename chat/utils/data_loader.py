@@ -6,6 +6,8 @@ from llama_index import SimpleDirectoryReader, ServiceContext, VectorStoreIndex
 import streamlit as st
 import os
 import pandas as pd
+import markdown
+from bs4 import BeautifulSoup
 
 from chat.configs import MODEL, TEMPERATURE, SYSTEM_PROMPT
 
@@ -15,6 +17,9 @@ class DataLoader:
         self.base_dir = base_dir
 
     def construct_file_path(self, cik, query_type):
+        '''
+        Construct path to csv file in directory path of a specific query and cik number.
+        '''
         folder_path = os.path.join(self.base_dir, str(cik), 'processed_data', query_type)
         files = os.listdir(folder_path)
         if files:
@@ -31,6 +36,9 @@ class DataLoader:
             return None
 
     def load_csv_data(self, file_path):
+        '''
+        Load csv data in directory path.
+        '''
         if file_path and os.path.exists(file_path):
             try:
                 df = pd.read_csv(file_path)
@@ -55,3 +63,35 @@ class DataLoader:
             index = VectorStoreIndex.from_documents(docs, service_context=service_context)
             query_engine = index.as_query_engine()
             return query_engine
+
+    def get_available_cik_numbers(self):
+        """
+        Returns a list of available CIK numbers based on the directory structure.
+        """
+        cik_numbers = [dir_name for dir_name in os.listdir(self.base_dir)
+                       if os.path.isdir(os.path.join(self.base_dir, dir_name))]
+        return cik_numbers
+
+    def get_available_query_types(self, cik):
+        """
+        Returns a list of available query types for a given CIK number.
+        """
+        index_file_path = os.path.join(self.base_dir, cik, 'processed_data', 'index.md')
+        if os.path.exists(index_file_path):
+            with open(index_file_path, 'r') as file:
+                md_content = file.read()
+                md = markdown.Markdown()
+                html_content = md.convert(md_content)
+                return self.extract_query_types_from_markdown(html_content)
+        return []
+
+    @staticmethod
+    def extract_query_types_from_markdown(html_content):
+        """
+        Extracts query types from the HTML content of the markdown file using BeautifulSoup.
+        """
+        soup = BeautifulSoup(html_content, 'html.parser')
+        query_types = [h3.get_text() for h3 in soup.find_all('h3')]
+        return query_types
+
+

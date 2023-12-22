@@ -4,10 +4,10 @@ This class manages data operations.
 import os
 import pandas as pd
 
-from apps.configs import SnowflakeConfig
-from apps.functions import SECAPIClient, SnowflakeDataManager, LoggingManager, DataStorageManager, AnnualDataProcessor, QuarterlyDataProcessor
-from apps.queries import ASSET_LIABILITIES, CASH_FLOW, DEBT_MANAGEMENT, LIQUIDITY, MARKET_VALUATION, OPERATIONAL_EFFICIENCY, PROFITABILITY, QUERY_FILES
-from apps.utils import FileVersionManager
+from .configs import SnowflakeConfig
+from .functions import SECAPIClient, SnowflakeDataManager, LoggingManager, DataStorageManager, AnnualDataProcessor, QuarterlyDataProcessor
+from .queries import ASSET_LIABILITIES, CASH_FLOW, DEBT_MANAGEMENT, LIQUIDITY, MARKET_VALUATION, OPERATIONAL_EFFICIENCY, PROFITABILITY, QUERY_FILES
+from .utils import FileVersionManager
 
 
 class DataPipelineIntegration:

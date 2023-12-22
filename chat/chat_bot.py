@@ -3,7 +3,10 @@ Implement the ChatBot class to encapsulate chat functionalities.
 '''
 import streamlit as st
 
-from chat.utils import ChatHelper
+from .utils import ChatHelper
+from .interface.app_interface import AppInterface
+from .configs import PAGE_TITLE, PAGE_ICON, INITIAL_SIDEBAR_STATE, MENU_ITEMS, LAYOUT
+
 
 
 class ChatBot:
@@ -11,6 +14,9 @@ class ChatBot:
         self.initialize_session_state()
         self.chat_helper = ChatHelper()
         self.chat_engine_instance = chat_engine_instance
+        self.chat_interface = AppInterface(PAGE_TITLE, PAGE_ICON, INITIAL_SIDEBAR_STATE, MENU_ITEMS, LAYOUT)
+
+
 
     def initialize_session_state(self):
         if "messages" not in st.session_state:
@@ -26,3 +32,5 @@ class ChatBot:
             else:
                 st.session_state.messages.append(
                     {"role": "assistant", "content": "I'm sorry, I couldn't generate a response."})
+        self.chat_interface.display_chat_messages()
+

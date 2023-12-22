@@ -18,3 +18,5 @@ streamlit~=1.29.0
 matplotlib~=3.8.2
 seaborn~=0.13.0
 mpld3~=0.5.9
+Markdown~=3.4.4
+beautifulsoup4~=4.12.2
