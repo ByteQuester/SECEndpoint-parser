@@ -5,24 +5,25 @@ import os
 import pandas as pd
 
 from .configs import SnowflakeConfig
-from .functions import SECAPIClient, SnowflakeDataManager, LoggingManager, DataStorageManager, AnnualDataProcessor, QuarterlyDataProcessor
+from .functions import AnnualDataProcessor, DataStorageManager, LoggingManager, QuarterlyDataProcessor, SECAPIClient, SnowflakeDataManager, TransformerManager
 from .queries import ASSET_LIABILITIES, CASH_FLOW, DEBT_MANAGEMENT, LIQUIDITY, MARKET_VALUATION, OPERATIONAL_EFFICIENCY, PROFITABILITY, QUERY_FILES
 from .utils import FileVersionManager
 
 
 class DataPipelineIntegration:
     def __init__(self, cik_number=None, use_snowflake=True, snowflake_config=None, local_storage_dir='data'):
+        self._init_metrics()
         self.cik_number = cik_number
-        self.use_snowflake = use_snowflake
+        self.data_storage_manager = DataStorageManager(local_storage_dir, cik_number)
+        self.document = FileVersionManager(base_dir=local_storage_dir)
+        self.error_handler = LoggingManager()
         self.local_storage_dir = local_storage_dir
-        self.sec_client = SECAPIClient()
+        self.use_snowflake = use_snowflake
         if self.use_snowflake:
             self.snowflake_config = snowflake_config if snowflake_config else SnowflakeConfig()
             self.snowflake_manager = SnowflakeDataManager(self.snowflake_config)
-        self.error_handler = LoggingManager()
-        self.document = FileVersionManager(base_dir=local_storage_dir)
-        self.data_storage_manager = DataStorageManager(local_storage_dir, cik_number)
-        self._init_metrics()
+        self.sec_client = SECAPIClient()
+        self.transformer_manager = TransformerManager()
 
     def _init_metrics(self):
         self.metrics = {
@@ -99,26 +100,21 @@ class DataPipelineIntegration:
             categories_to_process = specific_queries if specific_queries else self.category_metric_map.keys()
 
             for category in categories_to_process:
-                # Check if the category is valid
                 if category not in self.category_metric_map:
                     self.error_handler.log(f"Invalid category or query name: {category}", "WARNING")
                     continue
 
-                # Retrieve the preprocessed data file path for the category
                 preprocessed_file_path = self.data_storage_manager.get_processed_data_file_path(category)
                 if not preprocessed_file_path:
                     self.error_handler.log(f"No preprocessed data found for {category}", "WARNING")
                     continue
 
-                # Execute the query related to the category
                 query_result = self.execute_query(category)
 
-                # Store the query result if it's valid
                 if query_result and category in query_result and query_result[category] is not None:
                     processed_file_name = self.data_storage_manager.store_data(query_result[category], 'processed_data',
                                                                                category)
 
-                    # Update index file with the new or updated file path
                     if processed_file_name:
                         self.document.update_index(self.cik_number, category, processed_file_name, 'processed_data')
 
@@ -163,7 +159,6 @@ class DataPipelineIntegration:
         Returns:
             DataFrame: Query results as a pandas DataFrame.
         """
-        # Adjust the file path to match the new storage structure
         processed_file_path = self.data_storage_manager.get_processed_data_file_path(query_name)
         if not os.path.exists(processed_file_path):
             self.error_handler.log(f"No processed data file found for query {query_name}.", "ERROR")
@@ -186,3 +181,19 @@ class DataPipelineIntegration:
             return PROFITABILITY(df)
         else:
             self.error_handler.log(f"Query name '{query_name}' not implemented for local execution.", "ERROR")
+
+    def transform_and_store_json(self, category, chart_types=None):
+        processed_file_path = self.data_storage_manager.get_latest_processed_data_file_path(category)
+        if not processed_file_path:
+            self.error_handler.log(f"No processed data found for {category}", "WARNING")
+            return
+
+        df = pd.read_csv(processed_file_path)
+
+        # Get the comprehensive transformed JSON for all chart types
+        transformed_json = self.transformer_manager.transform_data(df, category, chart_types)
+
+        for chart_type, data in transformed_json.items():
+            json_file_name = self.data_storage_manager.store_json_data(data, 'processed_json', category, chart_type)
+            if not json_file_name:
+                self.error_handler.log(f"Failed to store transformed JSON for {category} - {chart_type}", "ERROR")

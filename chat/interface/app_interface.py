@@ -3,7 +3,7 @@ Transition to a class structure to encapsulate chat functionalities.
 '''
 import streamlit as st
 
-from .ui import FinancialVisualizer, show_data_view
+from .plot import GraphManager
 
 
 class AppInterface:
@@ -13,7 +13,7 @@ class AppInterface:
         self.layout = layout
         self.initial_sidebar_state = initial_sidebar_state
         self.menu_items = menu_items
-        self.visualizer = FinancialVisualizer()
+        self.visualizer = GraphManager()
 
     def display_chat_messages(self):
         '''
@@ -26,12 +26,13 @@ class AppInterface:
                 with st.chat_message(message["role"]):
                     st.write(message["content"])
 
-    def display_plot(self, df, plot_type):
-        plot_function = self.visualizer.get_plot_function(plot_type)
+    def display_plot(self, category, chart_type, df):
+        plot_function = self.visualizer.get_plot_function(category, chart_type)
         if plot_function:
-            plot_function(df)
+            plot_instance = plot_function(df)
+            # plot_instance.show()
         else:
-            st.write(f"No plot available for query type: {plot_type}")
+            st.write(f"No plot available for {category} - {chart_type}")
         pass
 
     def display_data_table(self, df):
